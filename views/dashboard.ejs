@@ -45,9 +45,9 @@
   <thead>
     <tr>
       <th class="sticky">Member</th>
-      <th>Status</th>
-      <th class="num">Balance</th>
-      <th class="num">Months behind</th>
+      <th class="hide-sm">Status</th>
+      <th class="num hide-sm">Balance</th>
+      <th class="num hide-sm">Months behind</th>
       <% gridMonths.forEach(m => { %><th class="mcol <%= m === cur ? 'curcol' : '' %>"><%= monthLabel(m).replace(' 20', " '") %></th><% }) %>
       <th class="num">Total paid</th>
     </tr>
@@ -55,10 +55,11 @@
   <tbody>
   <% rows.forEach(r => { %>
     <tr class="row-<%= r.status.code %>">
-      <td class="sticky"><a href="/members/<%= r.member.id %>"><%= r.member.name %></a></td>
-      <td><span class="badge <%= r.status.code %>"><%= r.status.label %></span></td>
-      <td class="num <%= r.balance < 0 ? 'neg' : 'pos' %>"><%= money(r.balance) %></td>
-      <td class="num"><%= r.monthsBehind || '' %></td>
+      <td class="sticky"><a href="/members/<%= r.member.id %>"><%= r.member.name %></a>
+        <div class="show-sm meta"><span class="<%= r.balance < 0 ? 'neg' : 'pos' %>"><%= money(r.balance) %></span><% if (r.monthsBehind) { %> · <%= r.monthsBehind %> mo<% } %></div></td>
+      <td class="hide-sm"><span class="badge <%= r.status.code %>"><%= r.status.label %></span></td>
+      <td class="num hide-sm <%= r.balance < 0 ? 'neg' : 'pos' %>"><%= money(r.balance) %></td>
+      <td class="num hide-sm"><%= r.monthsBehind || '' %></td>
       <% gridMonths.forEach(m => { %><%- include('partials/cell', { cell: r.months[m], m }) %><% }) %>
       <td class="num"><%= money(r.totalPaid) %></td>
     </tr>
@@ -68,4 +69,13 @@
 </table>
 </div>
 <p class="muted small">Cells: ✓ paid · ½ part paid · ✗ not paid · · not due yet. Lump-sum payments are applied to the oldest amount owing first, then to upcoming months.</p>
+<script>
+  // On narrow screens, open the month grid scrolled to the current month
+  (function () {
+    var wrap = document.querySelector('.tablewrap'), cur = document.querySelector('.grid th.curcol'), name = document.querySelector('.grid th.sticky');
+    if (wrap && cur && name && wrap.scrollWidth > wrap.clientWidth) {
+      wrap.scrollLeft = Math.max(0, cur.offsetLeft - name.offsetWidth - cur.offsetWidth * 2);
+    }
+  })();
+</script>
 <%- include('partials/footer') %>

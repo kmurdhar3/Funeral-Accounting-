@@ -11,6 +11,9 @@
 <% if (me) { %>
 <header class="topbar">
   <a class="brand" href="/"><img src="/logo-mark.png" alt=""><span><%= settings.org_name %></span></a>
+  <input type="checkbox" id="navtoggle" class="navtoggle" aria-hidden="true">
+  <label for="navtoggle" class="menubtn" aria-label="Menu">☰</label>
+  <div class="menu">
   <nav>
     <a href="/" class="<%= path === '/' ? 'on' : '' %>">Dashboard</a>
     <a href="/members/<%= me.id %>" class="<%= path === '/members/' + me.id ? 'on' : '' %>">My account</a>
@@ -27,6 +30,7 @@
     <span><%= me.name %><% if (me.role === 'admin') { %> <em>admin</em><% } %></span>
     <a href="/account/password">Password</a>
     <form method="post" action="/logout"><button class="linkbtn">Sign out</button></form>
+  </div>
   </div>
 </header>
 <% } %>
