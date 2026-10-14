@@ -82,7 +82,17 @@ function blobBackend() {
   };
 }
 
-const backend = process.env.BLOB_READ_WRITE_TOKEN ? blobBackend() : fileBackend();
+// Vercel's disk is read-only, so a deployment without Blob storage cannot save anything.
+function missingBlobBackend() {
+  const fail = async () => {
+    throw new Error('Vercel Blob is not connected: add a Blob store under the project\'s Storage tab, then redeploy.');
+  };
+  return { name: 'none (Vercel Blob not connected)', load: fail, save: fail };
+}
+
+const backend = process.env.BLOB_READ_WRITE_TOKEN ? blobBackend()
+  : process.env.VERCEL ? missingBlobBackend()
+  : fileBackend();
 
 // One local writer at a time; Blob writes are protected by the ETag check instead.
 let queue = Promise.resolve();

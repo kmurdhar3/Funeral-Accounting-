@@ -413,7 +413,8 @@ app.use((err, req, res, next) => {
   res.locals.me ||= null;
   res.locals.flash ||= null;
   res.locals.path ||= req.path;
-  res.status(500).render('error', { title: 'Error', message: 'Something went wrong.' });
+  const message = /Vercel Blob is not connected/.test(err.message) ? err.message : 'Something went wrong.';
+  res.status(500).render('error', { title: 'Error', message });
 });
 
 module.exports = app;
