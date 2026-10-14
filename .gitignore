@@ -8,3 +8,6 @@ demo-data/
 *.csv
 .env*
 .vercel/
+
+.vercel
+.env*

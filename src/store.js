@@ -72,7 +72,8 @@ function blobBackend() {
       const res = await get(KEY, { access: 'private', useCache: false });
       if (!res || res.statusCode !== 200) return { doc: null, etag: null };
       const text = await new Response(res.stream).text();
-      return { doc: JSON.parse(text), etag: res.blob.etag };
+      // get() can return a weak ETag (W/"…") that put()'s ifMatch never matches; use the strong form
+      return { doc: JSON.parse(text), etag: res.blob.etag.replace(/^W\//, '') };
     },
     async save(doc, etag) {
       const text = JSON.stringify(doc);
