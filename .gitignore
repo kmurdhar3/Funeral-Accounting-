@@ -6,3 +6,5 @@ demo-data/
 .claude/
 *.db
 *.csv
+.env*
+.vercel/

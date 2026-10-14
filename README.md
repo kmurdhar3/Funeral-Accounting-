@@ -4,7 +4,7 @@ A web portal for a funeral society. The admin sets the monthly fee and adds memb
 
 ## Run it
 
-Requires Node.js 22.13 or newer (it uses the built-in `node:sqlite`).
+Requires Node.js 20 or newer. On Windows PowerShell, use `npm.cmd` instead of `npm` if scripts are blocked.
 
 ```bash
 npm install
@@ -21,6 +21,18 @@ DATA_DIR=./demo-data npm start
 ```
 
 The demo admin login is `admin` / `admin123`. Demo members use their lowercase first name with `member123`.
+
+## Deploy to Vercel (with Turso)
+
+Vercel doesn't keep files between requests, so in production the data lives in [Turso](https://turso.tech), a hosted SQLite service. Locally the app keeps using `data/funeral.db`. The code decides which to use from the environment variables.
+
+1. Create a Turso database. Copy its URL (`libsql://…`) and create an auth token. You can also add Turso from your Vercel project's **Storage** tab, which sets the variables for you.
+2. In Vercel, import this GitHub repo. Under **Settings → Environment Variables**, set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`, then redeploy.
+3. Copy your local data into Turso once. Put the two variables in a `.env` file (it's git-ignored) and run:
+   ```bash
+   node --env-file=.env scripts/copy-to-turso.js
+   ```
+   If you skip this step, the deployed app starts empty and asks you to create an admin.
 
 ## How it works
 

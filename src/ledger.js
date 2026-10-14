@@ -29,13 +29,13 @@ function monthLabel(ym, long = false) {
   return `${name} ${y}`;
 }
 
-function loadContext(now = new Date()) {
-  return {
-    settings: getSettings(),
-    periods: db.prepare('SELECT * FROM periods ORDER BY start_month').all(),
-    levies: db.prepare('SELECT * FROM levies ORDER BY month, id').all(),
-    current: currentMonth(now),
-  };
+async function loadContext(now = new Date()) {
+  const [settings, periods, levies] = await Promise.all([
+    getSettings(),
+    db.all('SELECT * FROM periods ORDER BY start_month'),
+    db.all('SELECT * FROM levies ORDER BY month, id'),
+  ]);
+  return { settings, periods, levies, current: currentMonth(now) };
 }
 
 // Monthly fee for a member in a given month, or null when nothing is due that month.
@@ -135,12 +135,12 @@ function computeMember(member, payments, ctx) {
 }
 
 // Default: active paying members (what the dashboard shows). `all` = every account.
-function computeAll({ all = false } = {}) {
-  const ctx = loadContext();
-  const members = db.prepare(
-    `SELECT * FROM users ${all ? '' : 'WHERE active = 1 AND contributes = 1'} ORDER BY name COLLATE NOCASE`
-  ).all();
-  const payments = db.prepare('SELECT * FROM payments ORDER BY paid_on').all();
+async function computeAll({ all = false } = {}) {
+  const [ctx, members, payments] = await Promise.all([
+    loadContext(),
+    db.all(`SELECT * FROM users ${all ? '' : 'WHERE active = 1 AND contributes = 1'} ORDER BY name COLLATE NOCASE`),
+    db.all('SELECT * FROM payments ORDER BY paid_on'),
+  ]);
   const byUser = new Map();
   for (const p of payments) {
     if (!byUser.has(p.user_id)) byUser.set(p.user_id, []);
@@ -149,17 +149,19 @@ function computeAll({ all = false } = {}) {
   return { ctx, rows: members.map(m => computeMember(m, byUser.get(m.id) || [], ctx)) };
 }
 
-function computeOne(userId) {
-  const ctx = loadContext();
-  const member = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+async function computeOne(userId) {
+  const [ctx, member, payments] = await Promise.all([
+    loadContext(),
+    db.get('SELECT * FROM users WHERE id = ?', userId),
+    db.all('SELECT * FROM payments WHERE user_id = ? ORDER BY paid_on, id', userId),
+  ]);
   if (!member) return null;
-  const payments = db.prepare('SELECT * FROM payments WHERE user_id = ? ORDER BY paid_on, id').all(userId);
   return { ctx, row: computeMember(member, payments, ctx), payments };
 }
 
-function fundTotals(ctx) {
-  const paid = db.prepare('SELECT COALESCE(SUM(amount),0) AS t FROM payments').get().t;
-  const spent = db.prepare('SELECT COALESCE(SUM(amount),0) AS t FROM expenses').get().t;
+async function fundTotals(ctx) {
+  const paid = (await db.get('SELECT COALESCE(SUM(amount),0) AS t FROM payments')).t;
+  const spent = (await db.get('SELECT COALESCE(SUM(amount),0) AS t FROM expenses')).t;
   return { paid, spent, bank: ctx.settings.opening_bank_balance + paid - spent };
 }
 

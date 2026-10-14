@@ -5,13 +5,15 @@
   "main": "src/server.js",
   "type": "commonjs",
   "engines": {
-    "node": ">=22.13"
+    "node": ">=20"
   },
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning src/server.js",
-    "seed:demo": "node --disable-warning=ExperimentalWarning scripts/seed-demo.js"
+    "start": "node src/server.js",
+    "seed:demo": "node scripts/seed-demo.js",
+    "copy-to-turso": "node scripts/copy-to-turso.js"
   },
   "dependencies": {
+    "@libsql/client": "^0.15.15",
     "bcryptjs": "^2.4.3",
     "cookie-session": "^2.1.0",
     "ejs": "^3.1.10",
