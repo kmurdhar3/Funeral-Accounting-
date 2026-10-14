@@ -2,7 +2,7 @@
 // brought-forward owing, then each month's fee and levies in date order.
 // Whatever is left over is credit that covers future months ("paid ahead").
 
-const { db, getSettings } = require('./db');
+// All functions here are pure: they take the JSON document (see store.js) and return numbers.
 
 function currentMonth(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -29,13 +29,13 @@ function monthLabel(ym, long = false) {
   return `${name} ${y}`;
 }
 
-async function loadContext(now = new Date()) {
-  const [settings, periods, levies] = await Promise.all([
-    getSettings(),
-    db.all('SELECT * FROM periods ORDER BY start_month'),
-    db.all('SELECT * FROM levies ORDER BY month, id'),
-  ]);
-  return { settings, periods, levies, current: currentMonth(now) };
+function loadContext(doc, now = new Date()) {
+  return {
+    settings: doc.settings,
+    periods: [...doc.periods].sort((a, b) => a.start_month.localeCompare(b.start_month)),
+    levies: [...doc.levies].sort((a, b) => a.month.localeCompare(b.month) || a.id - b.id),
+    current: currentMonth(now),
+  };
 }
 
 // Monthly fee for a member in a given month, or null when nothing is due that month.
@@ -134,35 +134,33 @@ function computeMember(member, payments, ctx) {
   };
 }
 
+const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+const byDate = (a, b) => a.paid_on.localeCompare(b.paid_on) || a.id - b.id;
+
 // Default: active paying members (what the dashboard shows). `all` = every account.
-async function computeAll({ all = false } = {}) {
-  const [ctx, members, payments] = await Promise.all([
-    loadContext(),
-    db.all(`SELECT * FROM users ${all ? '' : 'WHERE active = 1 AND contributes = 1'} ORDER BY name COLLATE NOCASE`),
-    db.all('SELECT * FROM payments ORDER BY paid_on'),
-  ]);
+function computeAll(doc, { all = false } = {}) {
+  const ctx = loadContext(doc);
+  const members = doc.users.filter(u => all || (u.active && u.contributes)).sort(byName);
   const byUser = new Map();
-  for (const p of payments) {
+  for (const p of [...doc.payments].sort(byDate)) {
     if (!byUser.has(p.user_id)) byUser.set(p.user_id, []);
     byUser.get(p.user_id).push(p);
   }
   return { ctx, rows: members.map(m => computeMember(m, byUser.get(m.id) || [], ctx)) };
 }
 
-async function computeOne(userId) {
-  const [ctx, member, payments] = await Promise.all([
-    loadContext(),
-    db.get('SELECT * FROM users WHERE id = ?', userId),
-    db.all('SELECT * FROM payments WHERE user_id = ? ORDER BY paid_on, id', userId),
-  ]);
+function computeOne(doc, userId) {
+  const ctx = loadContext(doc);
+  const member = doc.users.find(u => u.id === userId);
   if (!member) return null;
+  const payments = doc.payments.filter(p => p.user_id === userId).sort(byDate);
   return { ctx, row: computeMember(member, payments, ctx), payments };
 }
 
-async function fundTotals(ctx) {
-  const paid = (await db.get('SELECT COALESCE(SUM(amount),0) AS t FROM payments')).t;
-  const spent = (await db.get('SELECT COALESCE(SUM(amount),0) AS t FROM expenses')).t;
-  return { paid, spent, bank: ctx.settings.opening_bank_balance + paid - spent };
+function fundTotals(doc) {
+  const paid = doc.payments.reduce((s, p) => s + p.amount, 0);
+  const spent = doc.expenses.reduce((s, e) => s + e.amount, 0);
+  return { paid, spent, bank: doc.settings.opening_bank_balance + paid - spent };
 }
 
 module.exports = {

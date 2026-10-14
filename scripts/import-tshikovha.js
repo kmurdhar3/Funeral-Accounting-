@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const { db, ready } = require('../src/db');
+const store = require('../src/store');
 
 const SHEET_DATE = '2026-09-07';
 const BANK_BALANCE = 27048579; // "BANK BALANCE 07/09/2026" R270 485.79, in cents
@@ -21,57 +21,51 @@ const usernameFor = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '.');
 const newPassword = () => crypto.randomBytes(6).toString('base64url').slice(0, 8);
 
 (async () => {
-  await ready;
-  const existing = new Set((await db.all('SELECT username FROM users')).map(u => u.username.toLowerCase()));
-  const taken = rows.map(r => usernameFor(r.name)).filter(u => existing.has(u));
-  if (taken.length) {
-    console.error(`Already imported (usernames exist: ${taken.join(', ')}). Nothing changed.`);
-    process.exit(1);
-  }
-  const hadPayments = (await db.get('SELECT COUNT(*) AS c FROM payments')).c > 0;
-  const admin = await db.get(`SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1`);
+  // Hash outside update(): update() may re-run its function if another save happens meanwhile
+  const prepared = rows.map(r => {
+    const password = newPassword();
+    return { r, name: titleCase(r.name), username: usernameFor(r.name), password, hash: bcrypt.hashSync(password, 10) };
+  });
 
-  const tx = await db.client.transaction('write');
-  const exec = (sql, ...args) => tx.execute({ sql, args });
-  try {
-    if (!(await exec(`SELECT 1 FROM periods WHERE start_month <= '2026-12' AND end_month >= '2026-01'`)).rows.length) {
-      await exec('INSERT INTO periods (name, start_month, end_month, monthly_fee) VALUES (?, ?, ?, ?)', '2026 Contribution', '2026-01', '2026-12', 10000);
-    }
-    if (!(await exec(`SELECT 1 FROM levies WHERE name = 'Top up Kelvin'`)).rows.length) {
-      await exec('INSERT INTO levies (name, month, amount) VALUES (?, ?, ?)', 'Top up Kelvin', '2026-05', 10000);
-    }
+  const result = await store.update(doc => {
+    const existing = new Set(doc.users.map(u => u.username.toLowerCase()));
+    const taken = prepared.map(p => p.username).filter(u => existing.has(u));
+    if (taken.length) return { error: `Already imported (usernames exist: ${taken.join(', ')}). Nothing changed.` };
+    const hadPayments = doc.payments.length > 0;
+    const admin = doc.users.find(u => u.role === 'admin');
 
-    const logins = [['name', 'username', 'password']];
+    if (!doc.periods.some(p => p.start_month <= '2026-12' && p.end_month >= '2026-01')) {
+      store.insert(doc, 'periods', { name: '2026 Contribution', start_month: '2026-01', end_month: '2026-12', monthly_fee: 10000 });
+    }
+    if (!doc.levies.some(l => l.name === 'Top up Kelvin')) {
+      store.insert(doc, 'levies', { name: 'Top up Kelvin', month: '2026-05', amount: 10000 });
+    }
     let total = 0;
-    for (const r of rows) {
-      const name = titleCase(r.name);
-      const username = usernameFor(r.name);
-      const password = newPassword();
-      const owing = r.owing2025 ? -r.owing2025 : 0; // sheet shows owing as negative
-      const ins = await exec(`INSERT INTO users (name, username, password_hash, role, join_month, opening_owing, contributes, notes)
-                              VALUES (?, ?, ?, 'member', '2026-01', ?, 1, ?)`,
-        name, username, bcrypt.hashSync(password, 10), owing, 'Imported from TSHIKOVHA financials 07/09/2026');
+    for (const { r, name, username, hash } of prepared) {
+      const u = store.insert(doc, 'users', {
+        name, username, password_hash: hash, role: 'member', phone: null, email: null, join_month: '2026-01',
+        opening_owing: r.owing2025 ? -r.owing2025 : 0, // sheet shows owing as negative
+        fee_override: null, active: 1, contributes: 1, notes: 'Imported from TSHIKOVHA financials 07/09/2026',
+      });
       if (r.total > 0) {
-        await exec(`INSERT INTO payments (user_id, amount, paid_on, method, note, recorded_by) VALUES (?, ?, ?, 'Imported', ?, ?)`,
-          Number(ins.lastInsertRowid), r.total, SHEET_DATE, '2026 contributions to date per TSHIKOVHA financials 07/09/2026', admin?.id ?? null);
+        store.insert(doc, 'payments', {
+          user_id: u.id, amount: r.total, paid_on: SHEET_DATE, method: 'Imported',
+          note: '2026 contributions to date per TSHIKOVHA financials 07/09/2026', recorded_by: admin?.id ?? null,
+        });
       }
       total += r.total;
-      logins.push([name, username, password]);
     }
-    if (!hadPayments) {
-      await exec(`UPDATE settings SET value = ? WHERE key = 'opening_bank_balance'`, String(BANK_BALANCE - total));
-    }
-    await tx.commit();
+    if (!hadPayments) doc.settings.opening_bank_balance = BANK_BALANCE - total;
+    return { total, hadPayments };
+  });
+  if (result.error) { console.error(result.error); process.exit(1); }
 
-    const csv = path.join(importDir, 'member-logins.csv');
-    fs.writeFileSync(csv, logins.map(l => l.join(',')).join('\n') + '\n');
-    console.log(`Imported ${rows.length} members, R${(total / 100).toFixed(2)} in contributions.`);
-    console.log(hadPayments
-      ? 'Opening bank balance left unchanged (payments already existed).'
-      : 'Opening bank balance set so the fund balance equals R270 485.79 as at 07/09/2026.');
-    console.log(`Initial passwords: ${csv}`);
-  } catch (e) {
-    await tx.rollback();
-    throw e;
-  }
+  const csv = path.join(importDir, 'member-logins.csv');
+  const logins = [['name', 'username', 'password'], ...prepared.map(p => [p.name, p.username, p.password])];
+  fs.writeFileSync(csv, logins.map(l => l.join(',')).join('\n') + '\n');
+  console.log(`Imported ${rows.length} members, R${(result.total / 100).toFixed(2)} in contributions.`);
+  console.log(result.hadPayments
+    ? 'Opening bank balance left unchanged (payments already existed).'
+    : 'Opening bank balance set so the fund balance equals R270 485.79 as at 07/09/2026.');
+  console.log(`Initial passwords: ${csv}`);
 })();

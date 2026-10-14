@@ -10,13 +10,16 @@
   "scripts": {
     "start": "node src/server.js",
     "seed:demo": "node scripts/seed-demo.js",
-    "copy-to-turso": "node scripts/copy-to-turso.js"
+    "upload-to-blob": "node --env-file=.env scripts/upload-to-blob.js"
   },
   "dependencies": {
-    "@libsql/client": "^0.15.15",
+    "@vercel/blob": "^2.8.2",
     "bcryptjs": "^2.4.3",
     "cookie-session": "^2.1.0",
     "ejs": "^3.1.10",
     "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@libsql/client": "^0.15.15"
   }
 }

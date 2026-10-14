@@ -11,7 +11,9 @@ npm install
 npm start
 ```
 
-Open http://localhost:3000. The first visit asks you to create the admin account. Data is stored in `data/funeral.db`. Back up that file.
+Open http://localhost:3000. The first visit asks you to create the admin account.
+
+All data is kept in one JSON file, `data/funeral.json`. Every save also writes a copy to `data/backups/<date>.json`, so you have one backup per day.
 
 To try it with sample data instead, point it at a separate folder:
 
@@ -22,17 +24,20 @@ DATA_DIR=./demo-data npm start
 
 The demo admin login is `admin` / `admin123`. Demo members use their lowercase first name with `member123`.
 
-## Deploy to Vercel (with Turso)
+## Deploy to Vercel
 
-Vercel doesn't keep files between requests, so in production the data lives in [Turso](https://turso.tech), a hosted SQLite service. Locally the app keeps using `data/funeral.db`. The code decides which to use from the environment variables.
+Vercel can't change files in a deployed app, so on Vercel the same JSON document is stored in **Vercel Blob**, Vercel's own file storage. The file is private and read and written by the app only. The app switches to Blob automatically when `BLOB_READ_WRITE_TOKEN` is set. Daily backups go to `funeral/backups/<date>.json` in the same store.
 
-1. Create a Turso database. Copy its URL (`libsql://…`) and create an auth token. You can also add Turso from your Vercel project's **Storage** tab, which sets the variables for you.
-2. In Vercel, import this GitHub repo. Under **Settings → Environment Variables**, set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`, then redeploy.
-3. Copy your local data into Turso once. Put the two variables in a `.env` file (it's git-ignored) and run:
+1. Import this GitHub repo at https://vercel.com/new.
+2. In the project, open **Storage → Create → Blob** and connect it to the project. This sets `BLOB_READ_WRITE_TOKEN`. Then redeploy.
+3. Upload your existing data once:
    ```bash
-   node --env-file=.env scripts/copy-to-turso.js
+   vercel env pull .env
+   npm run upload-to-blob
    ```
-   If you skip this step, the deployed app starts empty and asks you to create an admin.
+   If you skip this step, the site starts empty and the first visitor is asked to create an admin.
+
+If two admins save at the same moment, the second save reloads the latest data and applies its change again, so neither change is lost.
 
 ## How it works
 
