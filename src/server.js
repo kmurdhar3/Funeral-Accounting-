@@ -145,6 +145,8 @@ app.post('/account/password', requireLogin, a(async (req, res) => {
 
 // ---------- dashboard ----------
 app.get('/', requireLogin, (req, res) => {
+  // Members only ever see their own account; the dashboard of everyone is admin-only
+  if (req.me.role !== 'admin') return res.redirect(`/members/${req.me.id}`);
   const { ctx, rows } = ledger.computeAll(req.doc);
   const cur = ctx.current;
   const prev = ledger.addMonths(cur, -1);
@@ -186,8 +188,11 @@ app.get('/', requireLogin, (req, res) => {
   });
 });
 
-// ---------- members (visible to everyone logged in) ----------
+// ---------- member pages: admins see anyone, members only themselves ----------
 app.get('/members/:id', requireLogin, (req, res) => {
+  if (req.me.role !== 'admin' && Number(req.params.id) !== req.me.id) {
+    return res.status(403).render('error', { title: 'Not allowed', message: 'You can only view your own account.' });
+  }
   const data = ledger.computeOne(req.doc, Number(req.params.id));
   if (!data || (!data.row.member.active && req.me.role !== 'admin')) {
     return res.status(404).render('error', { title: 'Not found', message: 'Member not found.' });

@@ -15,7 +15,9 @@
   <label for="navtoggle" class="menubtn" aria-label="Menu">☰</label>
   <div class="menu">
   <nav>
-    <a href="/" class="<%= path === '/' ? 'on' : '' %>">Dashboard</a>
+    <% if (me.role === 'admin') { %>
+      <a href="/" class="<%= path === '/' ? 'on' : '' %>">Dashboard</a>
+    <% } %>
     <a href="/members/<%= me.id %>" class="<%= path === '/members/' + me.id ? 'on' : '' %>">My account</a>
     <% if (me.role === 'admin') { %>
       <a href="/admin/payments" class="<%= path.startsWith('/admin/payments') ? 'on' : '' %>">Payments</a>

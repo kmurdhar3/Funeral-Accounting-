@@ -2,6 +2,6 @@
 <div class="authbox">
   <h1><%= title %></h1>
   <p><%= message %></p>
-  <p><a href="/">Back to dashboard</a></p>
+  <p><a href="/">Back to <%= me && me.role !== 'admin' ? 'my account' : 'dashboard' %></a></p>
 </div>
 <%- include('partials/footer') %>

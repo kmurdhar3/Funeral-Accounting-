@@ -59,4 +59,4 @@ If two admins save at the same moment, the second save reloads the latest data a
 
 The current month counts as due from the 1st of the month.
 
-**Visibility.** Every signed-in user can see the dashboard and every member's profile and payment history. Only admins can change anything. An account can be marked "login only" (not charged), for an admin who doesn't pay contributions.
+**Visibility.** Only admins can see the dashboard and every member's details and status. A member who signs in sees only their own account: their status, balance, months paid and payment history. Only admins can change anything. An account can be marked "login only" (not charged), for an admin who doesn't pay contributions.
