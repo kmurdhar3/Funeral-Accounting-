@@ -1,0 +1,20 @@
+{
+  "name": "funeral-accounting",
+  "version": "1.0.0",
+  "description": "Funeral society contributions portal: members, monthly fees, payments, levies and arrears dashboard",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "seed:demo": "node --disable-warning=ExperimentalWarning scripts/seed-demo.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-session": "^2.1.0",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2"
+  }
+}

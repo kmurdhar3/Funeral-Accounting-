@@ -1,0 +1,83 @@
+<%- include('partials/header') %>
+<% const m = row.member; const isAdmin = me.role === 'admin'; %>
+<div class="pagehead">
+  <h1><%= m.name %> <span class="badge <%= row.status.code %>"><%= row.status.label %></span><% if (!m.active) { %> <span class="badge">Inactive</span><% } %></h1>
+  <p class="muted">
+    Member since <%= monthLabel(m.join_month, true) %>
+    <% if (m.phone) { %> · <%= m.phone %><% } %>
+    <% if (m.email) { %> · <%= m.email %><% } %>
+    <% if (m.fee_override != null) { %> · Custom fee <%= money(m.fee_override) %>/month<% } %>
+  </p>
+  <% if (isAdmin) { %><p><a class="btn" href="/admin/members/<%= m.id %>/edit">Edit member</a></p><% } %>
+</div>
+
+<section class="cards">
+  <div class="card <%= row.balance < 0 ? 'bad' : 'ok' %>"><div class="k">Balance</div><div class="v"><%= money(row.balance) %></div><div class="sub"><%= row.balance < 0 ? 'Owing' : 'In credit' %></div></div>
+  <div class="card"><div class="k">Total paid</div><div class="v"><%= money(row.totalPaid) %></div></div>
+  <div class="card"><div class="k">Total due so far</div><div class="v"><%= money(row.totalDue) %></div></div>
+  <div class="card <%= row.monthsBehind ? 'bad' : '' %>"><div class="k">Months behind</div><div class="v"><%= row.monthsBehind %></div></div>
+  <div class="card ok"><div class="k">Months paid ahead</div><div class="v"><%= row.monthsAhead %></div></div>
+  <div class="card"><div class="k">Last payment</div><div class="v small-v"><%= row.lastPayment ? money(row.lastPayment.amount) : '—' %></div><div class="sub"><%= row.lastPayment ? row.lastPayment.paid_on : '' %></div></div>
+</section>
+
+<% if (isAdmin) { %>
+<section class="panel">
+  <h2>Record a payment</h2>
+  <form method="post" action="/admin/payments" class="row">
+    <input type="hidden" name="user_id" value="<%= m.id %>">
+    <input type="hidden" name="back" value="member">
+    <label>Amount <input name="amount" inputmode="decimal" required placeholder="100.00"></label>
+    <label>Date <input type="date" name="paid_on" value="<%= new Date().toISOString().slice(0,10) %>" required></label>
+    <label>Method <input name="method" placeholder="Cash / EFT"></label>
+    <label>Note <input name="note"></label>
+    <button class="btn primary">Save payment</button>
+  </form>
+</section>
+<% } %>
+
+<section class="panel">
+  <h2>Monthly contributions</h2>
+  <% if (!allMonths.length) { %><p class="muted">No monthly fees apply yet.</p><% } else { %>
+  <div class="monthgrid">
+    <% allMonths.forEach(mm => { const c = row.months[mm]; %>
+      <div class="mbox c-<%= c.state %> <%= mm === ctx.current ? 'curbox' : '' %>">
+        <div class="mname"><%= monthLabel(mm) %></div>
+        <div class="mamt"><%= money(c.paid) %> / <%= money(c.due) %></div>
+      </div>
+    <% }) %>
+  </div>
+  <% } %>
+</section>
+
+<div class="twocol">
+<section class="panel">
+  <h2>Charges</h2>
+  <table class="list">
+    <thead><tr><th>Item</th><th class="num">Due</th><th class="num">Paid</th><th class="num">Outstanding</th></tr></thead>
+    <tbody>
+    <% row.charges.forEach(c => { %>
+      <tr class="<%= c.outstanding ? 'owe' : '' %>"><td><%= c.label %><% if (c.kind === 'levy') { %> <span class="tag">top-up</span><% } %></td><td class="num"><%= money(c.amount) %></td><td class="num"><%= money(c.paid) %></td><td class="num"><%= c.outstanding ? money(c.outstanding) : '' %></td></tr>
+    <% }) %>
+    <% if (!row.charges.length) { %><tr><td colspan="4" class="muted">Nothing charged yet.</td></tr><% } %>
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h2>Payments</h2>
+  <table class="list">
+    <thead><tr><th>Date</th><th class="num">Amount</th><th>Method / note</th><% if (isAdmin) { %><th></th><% } %></tr></thead>
+    <tbody>
+    <% payments.slice().reverse().forEach(p => { %>
+      <tr>
+        <td><%= p.paid_on %></td><td class="num"><%= money(p.amount) %></td>
+        <td><%= [p.method, p.note].filter(Boolean).join(' · ') %></td>
+        <% if (isAdmin) { %><td><form method="post" action="/admin/payments/<%= p.id %>/delete" onsubmit="return confirm('Delete this payment?')"><button class="linkbtn danger">Delete</button></form></td><% } %>
+      </tr>
+    <% }) %>
+    <% if (!payments.length) { %><tr><td colspan="4" class="muted">No payments yet.</td></tr><% } %>
+    </tbody>
+  </table>
+</section>
+</div>
+<%- include('partials/footer') %>

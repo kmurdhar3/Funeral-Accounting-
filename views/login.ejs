@@ -1,0 +1,12 @@
+<%- include('partials/header') %>
+<div class="authbox">
+  <h1><%= settings.org_name %></h1>
+  <p class="muted">Sign in to view contributions.</p>
+  <form method="post" action="/login" class="stack">
+    <label>Username <input name="username" autocomplete="username" required autofocus></label>
+    <label>Password <input type="password" name="password" autocomplete="current-password" required></label>
+    <button class="btn primary">Sign in</button>
+  </form>
+  <p class="muted small">Forgot your password? Ask the administrator to reset it.</p>
+</div>
+<%- include('partials/footer') %>

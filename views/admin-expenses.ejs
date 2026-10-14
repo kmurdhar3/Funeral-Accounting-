@@ -1,0 +1,32 @@
+<%- include('partials/header') %>
+<div class="pagehead">
+  <h1>Withdrawals &amp; expenses</h1>
+  <p class="muted">Money paid out of the fund, such as funeral payouts or bank fees.</p>
+</div>
+<section class="cards">
+  <div class="card"><div class="k">Opening bank balance</div><div class="v"><%= money(settings.opening_bank_balance) %></div></div>
+  <div class="card ok"><div class="k">Total collected</div><div class="v"><%= money(fund.paid) %></div></div>
+  <div class="card bad"><div class="k">Total withdrawn</div><div class="v"><%= money(fund.spent) %></div></div>
+  <div class="card"><div class="k">Fund balance</div><div class="v"><%= money(fund.bank) %></div></div>
+</section>
+<section class="panel">
+  <form method="post" action="/admin/expenses" class="row">
+    <label>Date <input type="date" name="spent_on" value="<%= today %>" required></label>
+    <label>Description <input name="description" placeholder="Funeral payout – …" required></label>
+    <label>Amount <input name="amount" inputmode="decimal" required></label>
+    <button class="btn primary">Record withdrawal</button>
+  </form>
+</section>
+<section class="panel">
+  <table class="list">
+    <thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th></th></tr></thead>
+    <tbody>
+    <% expenses.forEach(e => { %>
+      <tr><td><%= e.spent_on %></td><td><%= e.description %></td><td class="num"><%= money(e.amount) %></td>
+        <td><form method="post" action="/admin/expenses/<%= e.id %>/delete" onsubmit="return confirm('Delete this withdrawal?')"><button class="linkbtn danger">Delete</button></form></td></tr>
+    <% }) %>
+    <% if (!expenses.length) { %><tr><td colspan="4" class="muted">No withdrawals yet.</td></tr><% } %>
+    </tbody>
+  </table>
+</section>
+<%- include('partials/footer') %>

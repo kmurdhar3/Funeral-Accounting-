@@ -1,0 +1,36 @@
+<%- include('partials/header') %>
+<div class="pagehead">
+  <h1>Periods &amp; fees</h1>
+  <p class="muted">A period is the stretch of months you collect for, such as a full year or part of one (e.g. Mar–Dec 2026), along with the fee per member per month. Periods cannot overlap. Members with a custom fee pay that amount instead.</p>
+</div>
+
+<section class="panel">
+  <h2><%= edit ? 'Edit period' : 'New period' %></h2>
+  <form method="post" action="/admin/periods<%= edit ? '/' + edit.id : '' %>" class="row">
+    <label>Name <input name="name" value="<%= edit ? edit.name : '' %>" placeholder="2026 contributions" required></label>
+    <label>From <input type="month" name="start_month" value="<%= edit ? edit.start_month : '' %>" required></label>
+    <label>To <input type="month" name="end_month" value="<%= edit ? edit.end_month : '' %>" required></label>
+    <label>Monthly fee <input name="monthly_fee" inputmode="decimal" value="<%= edit ? cents2input(edit.monthly_fee) : '' %>" placeholder="100.00" required></label>
+    <button class="btn primary"><%= edit ? 'Save' : 'Add period' %></button>
+    <% if (edit) { %><a href="/admin/periods">Cancel</a><% } %>
+  </form>
+</section>
+
+<section class="panel">
+  <table class="list">
+    <thead><tr><th>Name</th><th>From</th><th>To</th><th class="num">Months</th><th class="num">Monthly fee</th><th></th></tr></thead>
+    <tbody>
+    <% periods.forEach(p => { %>
+      <tr>
+        <td><%= p.name %></td><td><%= monthLabel(p.start_month) %></td><td><%= monthLabel(p.end_month) %></td>
+        <td class="num"><%= (Number(p.end_month.slice(0,4)) - Number(p.start_month.slice(0,4))) * 12 + Number(p.end_month.slice(5)) - Number(p.start_month.slice(5)) + 1 %></td>
+        <td class="num"><%= money(p.monthly_fee) %></td>
+        <td><a href="/admin/periods?edit=<%= p.id %>">Edit</a>
+          <form method="post" action="/admin/periods/<%= p.id %>/delete" class="inline" onsubmit="return confirm('Delete this period? Its monthly charges disappear from every member.')"><button class="linkbtn danger">Delete</button></form></td>
+      </tr>
+    <% }) %>
+    <% if (!periods.length) { %><tr><td colspan="6" class="muted">No periods yet.</td></tr><% } %>
+    </tbody>
+  </table>
+</section>
+<%- include('partials/footer') %>

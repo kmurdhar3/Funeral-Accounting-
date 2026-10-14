@@ -1,0 +1,14 @@
+<%- include('partials/header') %>
+<div class="pagehead"><h1>Settings</h1></div>
+<form method="post" action="/admin/settings" class="panel formgrid">
+  <label>Society name <input name="org_name" value="<%= settings.org_name %>" required></label>
+  <label>Currency symbol <span class="hint">e.g. R, ₹, $</span><input name="currency" value="<%= settings.currency %>" maxlength="5" required></label>
+  <label>Black after this many unpaid months <input type="number" name="black_months" min="1" value="<%= settings.black_months %>" required></label>
+  <label>Black at or below this balance <span class="hint">Owing amount, e.g. 500 means a balance of -500</span>
+    <input name="suspend_balance" inputmode="decimal" value="<%= cents2input(Math.abs(settings.suspend_balance)) %>" required></label>
+  <label>Opening bank balance <span class="hint">Money in the account before payments were tracked here</span>
+    <input name="opening_bank_balance" inputmode="decimal" value="<%= cents2input(settings.opening_bank_balance) %>"></label>
+  <div class="wide"><button class="btn primary">Save settings</button></div>
+</form>
+<%- include('partials/legend') %>
+<%- include('partials/footer') %>

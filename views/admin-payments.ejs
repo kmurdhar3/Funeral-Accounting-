@@ -1,0 +1,44 @@
+<%- include('partials/header') %>
+<div class="pagehead"><h1>Payments</h1></div>
+<section class="panel">
+  <h2>Record a payment</h2>
+  <form method="post" action="/admin/payments" class="row">
+    <label>Member
+      <select name="user_id" required>
+        <option value="">Choose…</option>
+        <% members.forEach(m => { %><option value="<%= m.id %>" <%= preselect === m.id ? 'selected' : '' %>><%= m.name %></option><% }) %>
+      </select></label>
+    <label>Amount <input name="amount" inputmode="decimal" required placeholder="100.00"></label>
+    <label>Date <input type="date" name="paid_on" value="<%= today %>" required></label>
+    <label>Method <input name="method" placeholder="Cash / EFT"></label>
+    <label>Note <input name="note"></label>
+    <button class="btn primary">Save payment</button>
+  </form>
+  <p class="muted small">A lump sum (e.g. 5 × the monthly fee) automatically covers arrears first, then the following months.</p>
+</section>
+
+<section class="panel">
+  <div class="panelhead">
+    <h2>Recent payments<%= month ? ' · ' + monthLabel(month, true) : '' %></h2>
+    <form method="get" class="inline">
+      <label>Month <input type="month" name="month" value="<%= month || '' %>" onchange="this.form.submit()"></label>
+      <% if (month) { %><a href="/admin/payments">Clear</a><% } %>
+    </form>
+  </div>
+  <div class="tablewrap">
+  <table class="list">
+    <thead><tr><th>Date</th><th>Member</th><th class="num">Amount</th><th>Method</th><th>Note</th><th>Recorded by</th><th></th></tr></thead>
+    <tbody>
+    <% payments.forEach(p => { %>
+      <tr>
+        <td><%= p.paid_on %></td><td><a href="/members/<%= p.user_id %>"><%= p.member_name %></a></td>
+        <td class="num"><%= money(p.amount) %></td><td><%= p.method || '' %></td><td><%= p.note || '' %></td><td><%= p.recorder || '' %></td>
+        <td><form method="post" action="/admin/payments/<%= p.id %>/delete" onsubmit="return confirm('Delete this payment of <%= money(p.amount) %>?')"><button class="linkbtn danger">Delete</button></form></td>
+      </tr>
+    <% }) %>
+    <% if (!payments.length) { %><tr><td colspan="7" class="muted">No payments.</td></tr><% } %>
+    </tbody>
+  </table>
+  </div>
+</section>
+<%- include('partials/footer') %>

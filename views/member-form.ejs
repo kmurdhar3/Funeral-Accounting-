@@ -1,0 +1,25 @@
+<%- include('partials/header') %>
+<div class="pagehead"><h1><%= title %></h1></div>
+<% if (typeof error !== 'undefined' && error) { %><div class="flash error"><%= error %></div><% } %>
+<form method="post" action="<%= isNew ? '/admin/members' : '/admin/members/' + m.id %>" class="panel formgrid">
+  <label>Full name <input name="name" value="<%= m.name || '' %>" required></label>
+  <label>Username (for login) <input name="username" value="<%= m.username || '' %>" required autocomplete="off"></label>
+  <label><%= isNew ? 'Password (min 6 characters)' : 'New password (leave blank to keep)' %>
+    <input type="password" name="password" <%= isNew ? 'required' : '' %> minlength="6" autocomplete="new-password"></label>
+  <label>Phone <input name="phone" value="<%= m.phone || '' %>"></label>
+  <label>Email <input type="email" name="email" value="<%= m.email || '' %>"></label>
+  <label>Joined (first month charged) <input type="month" name="join_month" value="<%= m.join_month || '' %>" required></label>
+  <label>Custom monthly fee <span class="hint">Leave blank to use the period's fee</span>
+    <input name="fee_override" inputmode="decimal" value="<%= cents2input(m.fee_override) %>" placeholder="e.g. 100.00"></label>
+  <label>Brought forward <span class="hint">Amount owing from before (use a minus for credit)</span>
+    <input name="opening_owing" inputmode="decimal" value="<%= cents2input(m.opening_owing || 0) %>"></label>
+  <label>Role
+    <select name="role"><option value="member" <%= m.role !== 'admin' ? 'selected' : '' %>>Member</option><option value="admin" <%= m.role === 'admin' ? 'selected' : '' %>>Admin</option></select></label>
+  <label>Account
+    <select name="active"><option value="1" <%= m.active ? 'selected' : '' %>>Active</option><option value="0" <%= !m.active ? 'selected' : '' %>>Inactive (hidden, cannot log in)</option></select></label>
+  <label>Pays contributions
+    <select name="contributes"><option value="1" <%= m.contributes ? 'selected' : '' %>>Yes, paying member</option><option value="0" <%= !m.contributes ? 'selected' : '' %>>No, login only (not charged)</option></select></label>
+  <label class="wide">Notes <textarea name="notes" rows="2"><%= m.notes || '' %></textarea></label>
+  <div class="wide"><button class="btn primary"><%= isNew ? 'Add member' : 'Save changes' %></button> <a href="/admin/members">Cancel</a></div>
+</form>
+<%- include('partials/footer') %>

@@ -1,0 +1,4 @@
+<%
+  const labels = { paid: 'Paid', prepaid: 'Prepaid', partial: 'Part paid', 'partial-ahead': 'Part prepaid', unpaid: 'Not paid', upcoming: 'Not due yet' };
+  const sym = { paid: '✓', prepaid: '✓', partial: '½', 'partial-ahead': '½', unpaid: '✗', upcoming: '·' };
+%><% if (cell) { %><td class="cell c-<%= cell.state %>" title="<%= monthLabel(m) %>: <%= labels[cell.state] %> (<%= money(cell.paid) %> of <%= money(cell.due) %>)"><%= sym[cell.state] %></td><% } else { %><td class="cell c-na" title="Not a member / no fee">–</td><% } %>

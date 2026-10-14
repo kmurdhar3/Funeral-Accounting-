@@ -1,0 +1,25 @@
+<%- include('partials/header') %>
+<div class="pagehead">
+  <h1>Manage members</h1>
+  <p><a class="btn primary" href="/admin/members/new">+ Add member</a></p>
+</div>
+<div class="tablewrap">
+<table class="list">
+  <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Joined</th><th class="num">Monthly fee</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  <% rows.forEach(r => { const m = r.member; %>
+    <tr class="<%= m.active ? '' : 'inactive' %>">
+      <td><a href="/members/<%= m.id %>"><%= m.name %></a></td>
+      <td><%= m.username %></td>
+      <td><%= m.role %></td>
+      <td><%= monthLabel(m.join_month) %></td>
+      <td class="num"><%= m.fee_override != null ? money(m.fee_override) : 'Period fee' %></td>
+      <td class="num <%= r.balance < 0 ? 'neg' : 'pos' %>"><%= money(r.balance) %></td>
+      <td><% if (!m.contributes) { %><span class="badge">Login only</span><% } else if (m.active) { %><span class="badge <%= r.status.code %>"><%= r.status.label %></span><% } else { %><span class="badge">Inactive</span><% } %></td>
+      <td><a href="/admin/members/<%= m.id %>/edit">Edit</a> · <% if (m.contributes) { %><a href="/admin/payments?member=<%= m.id %>">Pay</a><% } %></td>
+    </tr>
+  <% }) %>
+  </tbody>
+</table>
+</div>
+<%- include('partials/footer') %>

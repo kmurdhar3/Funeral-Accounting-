@@ -1,0 +1,15 @@
+<%- include('partials/header') %>
+<div class="authbox">
+  <h1>First-time setup</h1>
+  <p class="muted">Create the administrator account. You can add members after this.</p>
+  <form method="post" action="/setup" class="stack">
+    <label>Society name <input name="org_name" value="<%= settings.org_name %>" required></label>
+    <label>Currency symbol <input name="currency" value="<%= settings.currency %>" required maxlength="5"></label>
+    <label>Your name <input name="name" required></label>
+    <label>Username <input name="username" autocomplete="username" required></label>
+    <label>Password (min 6 characters) <input type="password" name="password" autocomplete="new-password" minlength="6" required></label>
+    <label class="check"><input type="checkbox" name="contributes" value="1"> I also pay monthly contributions</label>
+    <button class="btn primary">Create admin</button>
+  </form>
+</div>
+<%- include('partials/footer') %>

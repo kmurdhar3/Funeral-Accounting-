@@ -1,0 +1,71 @@
+<%- include('partials/header') %>
+<div class="pagehead">
+  <h1>Dashboard</h1>
+  <p class="muted">Current month: <strong><%= monthLabel(cur, true) %></strong><% if (period) { %> · Period: <strong><%= period.name %></strong> (<%= money(period.monthly_fee) %>/month)<% } %></p>
+</div>
+
+<% if (!period) { %>
+  <div class="flash error">No collection period has been set up yet.<% if (me.role === 'admin') { %> <a href="/admin/periods">Create one</a> to start charging monthly fees.<% } %></div>
+<% } %>
+
+<section class="cards">
+  <div class="card"><div class="k">Members</div><div class="v"><%= stats.members %></div></div>
+  <div class="card ok"><div class="k">Paid <%= monthLabel(cur) %></div><div class="v"><%= stats.paidCurrent %></div></div>
+  <div class="card bad"><div class="k">Not paid <%= monthLabel(cur) %></div><div class="v"><%= stats.unpaidCurrent %></div></div>
+  <div class="card bad"><div class="k">Not paid <%= monthLabel(prev) %></div><div class="v"><%= stats.unpaidPrev %></div></div>
+  <div class="card"><div class="k">Collected <%= monthLabel(cur) %></div><div class="v"><%= money(stats.collectedCurrent) %></div></div>
+  <div class="card bad"><div class="k">Total outstanding</div><div class="v"><%= money(-stats.outstanding) %></div></div>
+  <div class="card"><div class="k">Paid in advance</div><div class="v"><%= money(stats.credit) %></div></div>
+  <div class="card"><div class="k">Fund balance</div><div class="v"><%= money(fund.bank) %></div><div class="sub">In <%= money(fund.paid) %> · Out <%= money(fund.spent) %></div></div>
+</section>
+
+<section class="statusbar">
+  <a href="/?status=green<%= period ? '&period=' + period.id : '' %>" class="pill green <%= filter === 'green' ? 'sel' : '' %>"><%= stats.green %> green</a>
+  <a href="/?status=red<%= period ? '&period=' + period.id : '' %>" class="pill red <%= filter === 'red' ? 'sel' : '' %>"><%= stats.red %> red</a>
+  <a href="/?status=black<%= period ? '&period=' + period.id : '' %>" class="pill black <%= filter === 'black' ? 'sel' : '' %>"><%= stats.black %> black</a>
+  <% if (filter) { %><a href="/<%= period ? '?period=' + period.id : '' %>" class="pill">Show all</a><% } %>
+  <form method="get" class="inline right">
+    <% if (filter) { %><input type="hidden" name="status" value="<%= filter %>"><% } %>
+    <% if (periods.length > 1) { %>
+      <label>Period <select name="period" onchange="this.form.submit()">
+        <% periods.forEach(p => { %><option value="<%= p.id %>" <%= period && p.id === period.id ? 'selected' : '' %>><%= p.name %></option><% }) %>
+      </select></label>
+    <% } %>
+    <label>Sort <select name="sort" onchange="this.form.submit()">
+      <option value="name" <%= sort === 'name' ? 'selected' : '' %>>Name</option>
+      <option value="status" <%= sort === 'status' ? 'selected' : '' %>>Worst first</option>
+    </select></label>
+  </form>
+</section>
+
+<%- include('partials/legend') %>
+
+<div class="tablewrap">
+<table class="grid">
+  <thead>
+    <tr>
+      <th class="sticky">Member</th>
+      <th>Status</th>
+      <th class="num">Balance</th>
+      <th class="num">Months behind</th>
+      <% gridMonths.forEach(m => { %><th class="mcol <%= m === cur ? 'curcol' : '' %>"><%= monthLabel(m).replace(' 20', " '") %></th><% }) %>
+      <th class="num">Total paid</th>
+    </tr>
+  </thead>
+  <tbody>
+  <% rows.forEach(r => { %>
+    <tr class="row-<%= r.status.code %>">
+      <td class="sticky"><a href="/members/<%= r.member.id %>"><%= r.member.name %></a></td>
+      <td><span class="badge <%= r.status.code %>"><%= r.status.label %></span></td>
+      <td class="num <%= r.balance < 0 ? 'neg' : 'pos' %>"><%= money(r.balance) %></td>
+      <td class="num"><%= r.monthsBehind || '' %></td>
+      <% gridMonths.forEach(m => { %><%- include('partials/cell', { cell: r.months[m], m }) %><% }) %>
+      <td class="num"><%= money(r.totalPaid) %></td>
+    </tr>
+  <% }) %>
+  <% if (!rows.length) { %><tr><td colspan="<%= 5 + gridMonths.length %>" class="muted center">No members to show.</td></tr><% } %>
+  </tbody>
+</table>
+</div>
+<p class="muted small">Cells: ✓ paid · ½ part paid · ✗ not paid · · not due yet. Lump-sum payments are applied to the oldest amount owing first, then to upcoming months.</p>
+<%- include('partials/footer') %>

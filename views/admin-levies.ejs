@@ -1,0 +1,26 @@
+<%- include('partials/header') %>
+<div class="pagehead">
+  <h1>Top-ups &amp; levies</h1>
+  <p class="muted">One-off amounts charged to every active member, such as a top-up after a funeral. Each one is charged to everyone who had joined by its month.</p>
+</div>
+<section class="panel">
+  <form method="post" action="/admin/levies" class="row">
+    <label>Description <input name="name" placeholder="Top-up: funeral of …" required></label>
+    <label>Month <input type="month" name="month" value="<%= current %>" required></label>
+    <label>Amount per member <input name="amount" inputmode="decimal" placeholder="100.00" required></label>
+    <button class="btn primary">Add top-up</button>
+  </form>
+</section>
+<section class="panel">
+  <table class="list">
+    <thead><tr><th>Month</th><th>Description</th><th class="num">Per member</th><th></th></tr></thead>
+    <tbody>
+    <% levies.forEach(l => { %>
+      <tr><td><%= monthLabel(l.month) %></td><td><%= l.name %></td><td class="num"><%= money(l.amount) %></td>
+        <td><form method="post" action="/admin/levies/<%= l.id %>/delete" onsubmit="return confirm('Delete this top-up for all members?')"><button class="linkbtn danger">Delete</button></form></td></tr>
+    <% }) %>
+    <% if (!levies.length) { %><tr><td colspan="4" class="muted">No top-ups yet.</td></tr><% } %>
+    </tbody>
+  </table>
+</section>
+<%- include('partials/footer') %>

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> · <%= settings.org_name %></title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<% if (me) { %>
+<header class="topbar">
+  <a class="brand" href="/"><%= settings.org_name %></a>
+  <nav>
+    <a href="/" class="<%= path === '/' ? 'on' : '' %>">Dashboard</a>
+    <a href="/members/<%= me.id %>" class="<%= path === '/members/' + me.id ? 'on' : '' %>">My account</a>
+    <% if (me.role === 'admin') { %>
+      <a href="/admin/payments" class="<%= path.startsWith('/admin/payments') ? 'on' : '' %>">Payments</a>
+      <a href="/admin/members" class="<%= path.startsWith('/admin/members') ? 'on' : '' %>">Members</a>
+      <a href="/admin/periods" class="<%= path.startsWith('/admin/periods') ? 'on' : '' %>">Periods &amp; fees</a>
+      <a href="/admin/levies" class="<%= path.startsWith('/admin/levies') ? 'on' : '' %>">Top-ups</a>
+      <a href="/admin/expenses" class="<%= path.startsWith('/admin/expenses') ? 'on' : '' %>">Withdrawals</a>
+      <a href="/admin/settings" class="<%= path.startsWith('/admin/settings') ? 'on' : '' %>">Settings</a>
+    <% } %>
+  </nav>
+  <div class="who">
+    <span><%= me.name %><% if (me.role === 'admin') { %> <em>admin</em><% } %></span>
+    <a href="/account/password">Password</a>
+    <form method="post" action="/logout"><button class="linkbtn">Sign out</button></form>
+  </div>
+</header>
+<% } %>
+<main>
+<% if (flash) { %><div class="flash <%= flash.type %>"><%= flash.msg %></div><% } %>
