@@ -17,7 +17,8 @@
     "bcryptjs": "^2.4.3",
     "cookie-session": "^2.1.0",
     "ejs": "^3.1.10",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "multer": "^2.4.0"
   },
   "devDependencies": {
     "@libsql/client": "^0.15.15"

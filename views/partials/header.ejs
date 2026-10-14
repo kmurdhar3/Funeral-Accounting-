@@ -20,6 +20,7 @@
     <% } %>
     <a href="/members/<%= me.id %>" class="<%= path === '/members/' + me.id ? 'on' : '' %>">My account</a>
     <% if (me.role === 'admin') { %>
+      <a href="/admin/requests" class="<%= path.startsWith('/admin/requests') ? 'on' : '' %>">Requests<% if (pendingCount) { %> <span class="count"><%= pendingCount %></span><% } %></a>
       <a href="/admin/payments" class="<%= path.startsWith('/admin/payments') ? 'on' : '' %>">Payments</a>
       <a href="/admin/members" class="<%= path.startsWith('/admin/members') ? 'on' : '' %>">Members</a>
       <a href="/admin/periods" class="<%= path.startsWith('/admin/periods') ? 'on' : '' %>">Periods &amp; fees</a>

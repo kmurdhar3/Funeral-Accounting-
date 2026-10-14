@@ -1,5 +1,6 @@
 <%- include('partials/header') %>
-<% const m = row.member; const isAdmin = me.role === 'admin'; %>
+<% const m = row.member; const isAdmin = me.role === 'admin'; const isSelf = me.id === m.id;
+   const monthsText = list => (list || []).map(x => monthLabel(x)).join(', '); %>
 <div class="pagehead">
   <h1><%= m.name %> <span class="badge <%= row.status.code %>"><%= row.status.label %></span><% if (!m.active) { %> <span class="badge">Inactive</span><% } %></h1>
   <p class="muted">
@@ -20,17 +21,63 @@
   <div class="card"><div class="k">Last payment</div><div class="v small-v"><%= row.lastPayment ? money(row.lastPayment.amount) : '—' %></div><div class="sub"><%= row.lastPayment ? row.lastPayment.paid_on : '' %></div></div>
 </section>
 
-<% if (isAdmin) { %>
+<% if (isSelf && m.contributes) { %>
+<section class="panel" id="pay">
+  <h2>Pay contributions</h2>
+  <p class="muted small">Tick the month(s) you paid for, attach your proof of payment, and submit. The admin checks the receipt and approves it, and then it shows on your account.</p>
+  <form method="post" action="/requests" enctype="multipart/form-data" class="stack" data-autoamount data-receipt>
+    <%- include('partials/month-picker', { options, selected: preselect, lock: true }) %>
+    <div class="row-fields">
+      <label>Amount paid <input name="amount" inputmode="decimal" required placeholder="100.00"></label>
+      <label>Date paid <input type="date" name="paid_on" value="<%= new Date().toISOString().slice(0,10) %>" required></label>
+      <label>Method <input name="method" placeholder="EFT / Cash deposit"></label>
+    </div>
+    <label>Receipt / proof of payment <span class="hint">Photo or PDF, up to 4 MB</span>
+      <input type="file" name="receipt" accept="image/*,application/pdf" required></label>
+    <label>Note <span class="hint">Optional</span><input name="note" maxlength="300"></label>
+    <div><button class="btn primary" type="submit">Submit for approval</button></div>
+  </form>
+</section>
+<% } %>
+
+<% if (requests.length) { %>
+<section class="panel">
+  <h2><%= isSelf ? 'My payment requests' : 'Payment requests' %></h2>
+  <div class="tablewrap">
+  <table class="list">
+    <thead><tr><th>Sent</th><th>Months</th><th class="num">Amount</th><th>Status</th><th>Receipt</th></tr></thead>
+    <tbody>
+    <% requests.forEach(r => { %>
+      <tr>
+        <td><%= r.created_at.slice(0, 10) %></td>
+        <td class="wrap"><%= monthsText(r.months) %></td>
+        <td class="num"><%= money(r.amount) %></td>
+        <td class="wrap"><span class="badge req-<%= r.status %>"><%= { pending: 'Waiting for approval', approved: 'Approved', rejected: 'Rejected' }[r.status] %></span>
+          <% if (r.admin_note) { %><div class="small muted"><%= r.admin_note %></div><% } %></td>
+        <td><a href="/requests/<%= r.id %>/receipt" target="_blank" rel="noopener">View</a></td>
+      </tr>
+    <% }) %>
+    </tbody>
+  </table>
+  </div>
+  <% if (isAdmin && requests.some(r => r.status === 'pending')) { %><p class="small"><a href="/admin/requests">Review pending requests →</a></p><% } %>
+</section>
+<% } %>
+
+<% if (isAdmin && m.contributes) { %>
 <section class="panel">
   <h2>Record a payment</h2>
-  <form method="post" action="/admin/payments" class="row">
+  <form method="post" action="/admin/payments" class="stack" data-autoamount>
     <input type="hidden" name="user_id" value="<%= m.id %>">
     <input type="hidden" name="back" value="member">
-    <label>Amount <input name="amount" inputmode="decimal" required placeholder="100.00"></label>
-    <label>Date <input type="date" name="paid_on" value="<%= new Date().toISOString().slice(0,10) %>" required></label>
-    <label>Method <input name="method" placeholder="Cash / EFT"></label>
-    <label>Note <input name="note"></label>
-    <button class="btn primary">Save payment</button>
+    <%- include('partials/month-picker', { options, selected: [], lock: false, legend: 'Months (optional: leave empty to pay the oldest amounts owed first)' }) %>
+    <div class="row-fields">
+      <label>Amount <input name="amount" inputmode="decimal" required placeholder="100.00"></label>
+      <label>Date <input type="date" name="paid_on" value="<%= new Date().toISOString().slice(0,10) %>" required></label>
+      <label>Method <input name="method" placeholder="Cash / EFT"></label>
+      <label>Note <input name="note"></label>
+    </div>
+    <div><button class="btn primary">Save payment</button></div>
   </form>
 </section>
 <% } %>
@@ -66,16 +113,17 @@
 <section class="panel">
   <h2>Payments</h2>
   <table class="list">
-    <thead><tr><th>Date</th><th class="num">Amount</th><th>Method / note</th><% if (isAdmin) { %><th></th><% } %></tr></thead>
+    <thead><tr><th>Date</th><th class="num">Amount</th><th>For</th><th>Method / note</th><% if (isAdmin) { %><th></th><% } %></tr></thead>
     <tbody>
     <% payments.slice().reverse().forEach(p => { %>
       <tr>
         <td><%= p.paid_on %></td><td class="num"><%= money(p.amount) %></td>
-        <td><%= [p.method, p.note].filter(Boolean).join(' · ') %></td>
+        <td class="wrap"><%= p.months && p.months.length ? monthsText(p.months) : 'Oldest owing first' %></td>
+        <td class="wrap"><%= [p.method, p.note].filter(Boolean).join(' · ') %></td>
         <% if (isAdmin) { %><td><form method="post" action="/admin/payments/<%= p.id %>/delete" onsubmit="return confirm('Delete this payment?')"><button class="linkbtn danger">Delete</button></form></td><% } %>
       </tr>
     <% }) %>
-    <% if (!payments.length) { %><tr><td colspan="4" class="muted">No payments yet.</td></tr><% } %>
+    <% if (!payments.length) { %><tr><td colspan="5" class="muted">No payments yet.</td></tr><% } %>
     </tbody>
   </table>
 </section>

@@ -1,6 +1,8 @@
-// Contribution calculations. Payments are allocated oldest-charge-first (FIFO):
-// brought-forward owing, then each month's fee and levies in date order.
-// Whatever is left over is credit that covers future months ("paid ahead").
+// Contribution calculations.
+// 1. A payment marked for specific months (payment.months) pays those months' fees first.
+// 2. Everything else (unmarked payments and any leftover) is allocated oldest-charge-first:
+//    brought-forward owing, then each month's fee and levies in date order.
+// 3. Whatever is still left covers future months in order ("paid ahead").
 
 // All functions here are pure: they take the JSON document (see store.js) and return numbers.
 
@@ -57,7 +59,7 @@ function computeMember(member, payments, ctx) {
   if (!member.contributes) {
     // nothing brought forward
   } else if (member.opening_owing > 0) {
-    charges.push({ kind: 'opening', month: '0000-00', label: 'Brought forward', amount: member.opening_owing });
+    charges.push({ kind: 'opening', month: '0000-00', label: 'Brought forward', amount: member.opening_owing, paid: 0 });
   } else if (member.opening_owing < 0) {
     openingCredit = -member.opening_owing;
   }
@@ -69,24 +71,36 @@ function computeMember(member, payments, ctx) {
   for (const m of allMonths) {
     const fee = feeFor(member, m, periods);
     if (fee == null || fee === 0) continue;
-    if (m <= current) charges.push({ kind: 'fee', month: m, label: `Contribution ${monthLabel(m)}`, amount: fee });
-    else futureFees.push({ kind: 'fee', month: m, amount: fee });
+    const c = { kind: 'fee', month: m, label: `Contribution ${monthLabel(m)}`, amount: fee, paid: 0 };
+    (m <= current ? charges : futureFees).push(c);
   }
   for (const l of levies) {
     if (l.month <= current && l.month >= member.join_month) {
-      charges.push({ kind: 'levy', month: l.month, label: l.name, amount: l.amount, levyId: l.id });
+      charges.push({ kind: 'levy', month: l.month, label: l.name, amount: l.amount, levyId: l.id, paid: 0 });
     }
   }
   charges.sort((a, b) => a.month.localeCompare(b.month) || (a.kind === 'levy') - (b.kind === 'levy'));
+  const feeByMonth = new Map([...charges, ...futureFees].filter(c => c.kind === 'fee').map(c => [c.month, c]));
+  const apply = (c, available) => {
+    const take = Math.max(0, Math.min(available, c.amount - c.paid));
+    c.paid += take;
+    return take;
+  };
 
   const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
-  let pool = totalPaid + openingCredit;
-  for (const c of charges) {
-    c.paid = Math.max(0, Math.min(pool, c.amount));
-    pool -= c.paid;
-    c.outstanding = c.amount - c.paid;
+  let pool = openingCredit;
+  for (const p of payments) {
+    let left = p.amount;
+    for (const m of [...(p.months || [])].sort()) {
+      const c = feeByMonth.get(m);
+      if (c) left -= apply(c, left);
+    }
+    pool += left;
   }
-  const credit = pool; // left over after everything due so far
+  for (const c of charges) pool -= apply(c, pool);
+  for (const f of futureFees) pool -= apply(f, pool);
+  const credit = pool; // left over even after the last future month
+  for (const c of charges) c.outstanding = c.amount - c.paid;
 
   // Month grid: state of each month's fee
   const months = {};
@@ -98,16 +112,13 @@ function computeMember(member, payments, ctx) {
       state: c.outstanding === 0 ? 'paid' : c.paid > 0 ? 'partial' : 'unpaid',
     };
   }
-  let ahead = credit;
   let monthsAhead = 0;
   for (const f of futureFees) {
-    const paid = Math.max(0, Math.min(ahead, f.amount));
-    ahead -= paid;
-    if (paid === f.amount) monthsAhead++;
+    if (f.paid === f.amount) monthsAhead++;
     months[f.month] = {
       due: f.amount,
-      paid,
-      state: paid === f.amount ? 'prepaid' : paid > 0 ? 'partial-ahead' : 'upcoming',
+      paid: f.paid,
+      state: f.paid === f.amount ? 'prepaid' : f.paid > 0 ? 'partial-ahead' : 'upcoming',
     };
   }
 
@@ -121,7 +132,8 @@ function computeMember(member, payments, ctx) {
     status = { code: 'none', label: 'Not a paying member' };
   } else if (balance <= settings.suspend_balance || monthsBehind >= settings.black_months) {
     status = { code: 'black', label: 'Seriously in arrears' };
-  } else if (balance < 0) {
+  } else if (balance < 0 || monthsBehind > 0) {
+    // a month can be unpaid even with credit, when money was put towards later months
     status = { code: 'red', label: 'Owing' };
   } else {
     status = { code: 'green', label: monthsAhead > 0 ? `Paid ahead (${monthsAhead} mo)` : 'Up to date' };

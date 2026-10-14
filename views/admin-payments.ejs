@@ -27,16 +27,16 @@
   </div>
   <div class="tablewrap">
   <table class="list">
-    <thead><tr><th>Date</th><th>Member</th><th class="num">Amount</th><th>Method</th><th>Note</th><th>Recorded by</th><th></th></tr></thead>
+    <thead><tr><th>Date</th><th>Member</th><th class="num">Amount</th><th>For</th><th>Method</th><th>Note</th><th>Recorded by</th><th></th></tr></thead>
     <tbody>
     <% payments.forEach(p => { %>
       <tr>
         <td><%= p.paid_on %></td><td><a href="/members/<%= p.user_id %>"><%= p.member_name %></a></td>
-        <td class="num"><%= money(p.amount) %></td><td><%= p.method || '' %></td><td><%= p.note || '' %></td><td><%= p.recorder || '' %></td>
+        <td class="num"><%= money(p.amount) %></td><td class="wrap"><%= p.months && p.months.length ? p.months.map(x => monthLabel(x)).join(', ') : '' %><% if (p.request_id) { %> <span class="tag">receipt</span><% } %></td><td><%= p.method || '' %></td><td><%= p.note || '' %></td><td><%= p.recorder || '' %></td>
         <td><form method="post" action="/admin/payments/<%= p.id %>/delete" onsubmit="return confirm('Delete this payment of <%= money(p.amount) %>?')"><button class="linkbtn danger">Delete</button></form></td>
       </tr>
     <% }) %>
-    <% if (!payments.length) { %><tr><td colspan="7" class="muted">No payments.</td></tr><% } %>
+    <% if (!payments.length) { %><tr><td colspan="8" class="muted">No payments.</td></tr><% } %>
     </tbody>
   </table>
   </div>

@@ -18,7 +18,7 @@ const DEFAULT_SETTINGS = {
   suspend_balance: -50000,    // balance (cents) at or below which a member turns black
   opening_bank_balance: 0,    // cents
 };
-const TABLES = ['users', 'periods', 'levies', 'payments', 'expenses'];
+const TABLES = ['users', 'periods', 'levies', 'payments', 'expenses', 'requests'];
 
 function normalize(doc) {
   doc = doc || {};
@@ -57,6 +57,16 @@ function fileBackend() {
       await fs.promises.rename(tmp, file); // atomic replace: a crash never leaves half a file
       await fs.promises.writeFile(path.join(dir, 'backups', `${today()}.json`), text);
     },
+    async putFile(key, buffer) {
+      const target = path.join(dir, key);
+      await fs.promises.mkdir(path.dirname(target), { recursive: true });
+      await fs.promises.writeFile(target, buffer);
+    },
+    async getFile(key) {
+      const target = path.join(dir, key);
+      if (!fs.existsSync(target)) return null;
+      return require('stream').Readable.toWeb(fs.createReadStream(target));
+    },
   };
 }
 
@@ -80,6 +90,13 @@ function blobBackend() {
       await put(KEY, text, { ...opts, cacheControlMaxAge: 60, ...(etag ? { ifMatch: etag } : {}) });
       await put(`funeral/backups/${today()}.json`, text, { ...opts, cacheControlMaxAge: 60 });
     },
+    async putFile(key, buffer, contentType) {
+      await put(`funeral/${key}`, buffer, { access: 'private', contentType, addRandomSuffix: false, allowOverwrite: false });
+    },
+    async getFile(key) {
+      const res = await get(`funeral/${key}`, { access: 'private' });
+      return res && res.statusCode === 200 ? res.stream : null;
+    },
   };
 }
 
@@ -88,7 +105,7 @@ function missingBlobBackend() {
   const fail = async () => {
     throw new Error('Vercel Blob is not connected: add a Blob store under the project\'s Storage tab, then redeploy.');
   };
-  return { name: 'none (Vercel Blob not connected)', load: fail, save: fail };
+  return { name: 'none (Vercel Blob not connected)', load: fail, save: fail, putFile: fail, getFile: fail };
 }
 
 const backend = process.env.BLOB_READ_WRITE_TOKEN ? blobBackend()
@@ -142,4 +159,9 @@ const sessionSecret = async () => {
   return s;
 };
 
-module.exports = { read, update, insert, normalize, sessionSecret, backendName: backend.name, now };
+// Uploaded files (payment receipts). Keys look like "receipts/<random>.jpg".
+// getFile returns a web ReadableStream, or null when the file does not exist.
+const putFile = (key, buffer, contentType) => backend.putFile(key, buffer, contentType);
+const getFile = key => backend.getFile(key);
+
+module.exports = { read, update, insert, normalize, sessionSecret, putFile, getFile, backendName: backend.name, now };

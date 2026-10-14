@@ -2,6 +2,9 @@ const path = require('path');
 const express = require('express');
 const cookieSession = require('cookie-session');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const { Readable } = require('stream');
+const multer = require('multer');
 const store = require('./store');
 const ledger = require('./ledger');
 
@@ -42,6 +45,25 @@ const findUser = (doc, id) => doc.users.find(u => u.id === Number(id));
 
 function flash(req, type, msg) { req.session.flash = { type, msg }; }
 
+// Months a member can pay for, with what is left to pay and whether a request is already waiting.
+function monthOptions(doc, row) {
+  const pending = new Set(doc.requests
+    .filter(r => r.user_id === row.member.id && r.status === 'pending')
+    .flatMap(r => r.months));
+  return Object.keys(row.months).sort().map(m => ({
+    m, ...row.months[m], remaining: row.months[m].due - row.months[m].paid, pending: pending.has(m),
+  }));
+}
+// Selected months from a form (one value or many), limited to months the member is charged for
+function monthsFromBody(body, options) {
+  const allowed = new Set(options.map(o => o.m));
+  const raw = [].concat(body.months || []);
+  return [...new Set(raw.filter(m => isMonth(m) && allowed.has(m)))].sort();
+}
+const RECEIPT_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif', 'application/pdf': 'pdf' };
+// Vercel rejects request bodies over 4.5 MB; the browser shrinks photos before upload
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 4 * 1024 * 1024, files: 1 } });
+
 // Load the data once per request
 app.use(a(async (req, res, next) => {
   const doc = await store.read();
@@ -65,6 +87,7 @@ app.use(a(async (req, res, next) => {
     else req.session = null;
   }
   req.me = res.locals.me;
+  res.locals.pendingCount = req.me?.role === 'admin' ? doc.requests.filter(r => r.status === 'pending').length : 0;
   next();
 }));
 
@@ -199,8 +222,123 @@ app.get('/members/:id', requireLogin, (req, res) => {
   }
   const { ctx, row, payments } = data;
   const allMonths = Object.keys(row.months).sort();
-  res.render('member', { title: row.member.name, row, payments, ctx, allMonths });
+  const options = monthOptions(req.doc, row);
+  const cur = options.find(o => o.m === ctx.current);
+  const preselect = cur && cur.remaining > 0 && !cur.pending ? [cur.m] : [];
+  const requests = req.doc.requests.filter(r => r.user_id === row.member.id).sort((x, y) => y.id - x.id);
+  res.render('member', { title: row.member.name, row, payments, ctx, allMonths, options, preselect, requests });
 });
+
+// ---------- payment requests: members submit, admins review ----------
+app.post('/requests', requireLogin, (req, res, next) => {
+  upload.single('receipt')(req, res, err => {
+    if (err) {
+      flash(req, 'error', err.code === 'LIMIT_FILE_SIZE' ? 'The receipt is too large (max 4 MB). Try a smaller photo or PDF.' : 'The receipt could not be uploaded.');
+      return res.redirect(`/members/${req.me.id}`);
+    }
+    next();
+  });
+}, a(async (req, res) => {
+  const back = `/members/${req.me.id}`;
+  const data = ledger.computeOne(req.doc, req.me.id);
+  if (!data?.row.member.contributes) { flash(req, 'error', 'Your account is not charged contributions.'); return res.redirect(back); }
+  const options = monthOptions(req.doc, data.row);
+  const months = monthsFromBody(req.body, options);
+  const amount = toCents(req.body.amount);
+  const file = req.file;
+  let err = null;
+  if (!months.length) err = 'Select at least one month.';
+  else if (months.some(m => options.find(o => o.m === m).pending)) err = 'One of those months already has a request waiting for approval.';
+  else if (!(amount > 0)) err = 'Enter the amount you paid.';
+  else if (!isDate(req.body.paid_on)) err = 'Enter the date you paid.';
+  else if (!file) err = 'Attach the receipt (photo or PDF).';
+  else if (!RECEIPT_TYPES[file.mimetype]) err = 'The receipt must be a photo (JPG, PNG, WEBP, HEIC) or a PDF.';
+  if (err) { flash(req, 'error', err); return res.redirect(back); }
+
+  const key = `receipts/${crypto.randomBytes(12).toString('hex')}.${RECEIPT_TYPES[file.mimetype]}`;
+  await store.putFile(key, file.buffer, file.mimetype);
+  await store.update(doc => {
+    store.insert(doc, 'requests', {
+      user_id: req.me.id, months, amount, paid_on: req.body.paid_on,
+      method: (req.body.method || '').trim() || null, note: (req.body.note || '').trim() || null,
+      receipt: { key, type: file.mimetype, name: file.originalname.slice(0, 120), size: file.size },
+      status: 'pending', reviewed_by: null, reviewed_at: null, admin_note: null, payment_id: null,
+    });
+  });
+  flash(req, 'ok', 'Payment submitted. The admin will review your receipt and approve it.');
+  res.redirect(back);
+}));
+
+// Receipt files: only the member who sent it and admins can open them
+app.get('/requests/:id/receipt', requireLogin, a(async (req, res) => {
+  const r = req.doc.requests.find(x => x.id === Number(req.params.id));
+  if (!r || (req.me.role !== 'admin' && r.user_id !== req.me.id)) {
+    return res.status(404).render('error', { title: 'Not found', message: 'Receipt not found.' });
+  }
+  const stream = await store.getFile(r.receipt.key);
+  if (!stream) return res.status(404).render('error', { title: 'Not found', message: 'Receipt file is missing.' });
+  res.set({
+    'Content-Type': r.receipt.type,
+    'Content-Disposition': `inline; filename="receipt-${r.id}.${r.receipt.key.split('.').pop()}"`,
+    'Cache-Control': 'private, no-store',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  Readable.fromWeb(stream).pipe(res);
+}));
+
+app.get('/admin/requests', requireAdmin, (req, res) => {
+  const doc = req.doc;
+  const show = ['pending', 'approved', 'rejected', 'all'].includes(req.query.show) ? req.query.show : 'pending';
+  const names = new Map(doc.users.map(u => [u.id, u.name]));
+  const list = doc.requests
+    .filter(r => show === 'all' || r.status === show)
+    .sort((x, y) => (show === 'pending' ? x.id - y.id : y.id - x.id))
+    .map(r => {
+      const row = ledger.computeOne(doc, r.user_id)?.row;
+      return { ...r, member_name: names.get(r.user_id), reviewer: names.get(r.reviewed_by), row, options: row ? monthOptions(doc, row) : [] };
+    });
+  const counts = Object.fromEntries(['pending', 'approved', 'rejected'].map(k => [k, doc.requests.filter(r => r.status === k).length]));
+  res.render('admin-requests', { title: 'Payment requests', list, show, counts });
+});
+
+app.post('/admin/requests/:id/approve', requireAdmin, a(async (req, res) => {
+  const id = Number(req.params.id);
+  const r0 = req.doc.requests.find(x => x.id === id);
+  const data = r0 && ledger.computeOne(req.doc, r0.user_id);
+  if (!data) { flash(req, 'error', 'Request not found.'); return res.redirect('/admin/requests'); }
+  const months = monthsFromBody(req.body, monthOptions(req.doc, data.row));
+  const amount = toCents(req.body.amount);
+  const paid_on = isDate(req.body.paid_on) ? req.body.paid_on : r0.paid_on;
+  if (!(amount > 0)) { flash(req, 'error', 'Amount must be positive.'); return res.redirect('/admin/requests'); }
+  const result = await store.update(doc => {
+    const r = doc.requests.find(x => x.id === id);
+    if (!r || r.status !== 'pending') return { error: 'That request was already reviewed.' };
+    const payment = store.insert(doc, 'payments', {
+      user_id: r.user_id, amount, paid_on, months, method: r.method,
+      note: r.note, recorded_by: req.me.id, request_id: r.id,
+    });
+    Object.assign(r, {
+      status: 'approved', months, amount, paid_on, payment_id: payment.id,
+      reviewed_by: req.me.id, reviewed_at: store.now(), admin_note: (req.body.admin_note || '').trim() || null,
+    });
+  });
+  if (result?.error) flash(req, 'error', result.error);
+  else flash(req, 'ok', `Approved ${res.locals.money(amount)} from ${data.row.member.name}.`);
+  res.redirect('/admin/requests');
+}));
+
+app.post('/admin/requests/:id/reject', requireAdmin, a(async (req, res) => {
+  const id = Number(req.params.id);
+  const reason = (req.body.admin_note || '').trim();
+  if (!reason) { flash(req, 'error', 'Give a reason so the member knows what to fix.'); return res.redirect('/admin/requests'); }
+  const result = await store.update(doc => {
+    const r = doc.requests.find(x => x.id === id);
+    if (!r || r.status !== 'pending') return { error: 'That request was already reviewed.' };
+    Object.assign(r, { status: 'rejected', reviewed_by: req.me.id, reviewed_at: store.now(), admin_note: reason });
+  });
+  flash(req, result?.error ? 'error' : 'ok', result?.error || 'Request rejected. The member can see your reason.');
+  res.redirect('/admin/requests');
+}));
 
 // ---------- admin: members ----------
 function memberFromBody(b) {
@@ -302,9 +440,10 @@ app.post('/admin/payments', requireAdmin, a(async (req, res) => {
     flash(req, 'error', 'Choose a member, a positive amount and a date.');
     return res.redirect('/admin/payments');
   }
+  const months = monthsFromBody(req.body, monthOptions(req.doc, ledger.computeOne(req.doc, userId).row));
   await store.update(doc => {
     store.insert(doc, 'payments', {
-      user_id: userId, amount, paid_on: req.body.paid_on,
+      user_id: userId, amount, paid_on: req.body.paid_on, months,
       method: (req.body.method || '').trim() || null, note: (req.body.note || '').trim() || null, recorded_by: req.me.id,
     });
   });
@@ -320,8 +459,19 @@ const deleteRow = (table, message, redirect) => a(async (req, res) => {
   res.redirect(redirect(req));
 });
 
-app.post('/admin/payments/:id/delete', requireAdmin,
-  deleteRow('payments', 'Payment removed.', req => req.get('Referer') || '/admin/payments'));
+// Deleting a payment that came from a request puts the request back in the queue
+app.post('/admin/payments/:id/delete', requireAdmin, a(async (req, res) => {
+  const id = Number(req.params.id);
+  const reopened = await store.update(doc => {
+    const p = doc.payments.find(x => x.id === id);
+    doc.payments = doc.payments.filter(x => x.id !== id);
+    const r = p?.request_id && doc.requests.find(x => x.id === p.request_id);
+    if (r) Object.assign(r, { status: 'pending', payment_id: null, reviewed_by: null, reviewed_at: null });
+    return Boolean(r);
+  });
+  flash(req, 'ok', reopened ? 'Payment removed. Its request is back in Requests for review.' : 'Payment removed.');
+  res.redirect(req.get('Referer') || '/admin/payments');
+}));
 
 // ---------- admin: periods ----------
 app.get('/admin/periods', requireAdmin, (req, res) => {

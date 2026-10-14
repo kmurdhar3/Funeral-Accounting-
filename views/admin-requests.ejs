@@ -1,0 +1,69 @@
+<%- include('partials/header') %>
+<% const monthsText = list => (list || []).map(x => monthLabel(x)).join(', ');
+   const statusText = { pending: 'Waiting for approval', approved: 'Approved', rejected: 'Rejected' }; %>
+<div class="pagehead">
+  <h1>Payment requests</h1>
+  <p class="muted">Members submit payments with a receipt. Check the receipt, adjust the amount or months if needed, then approve or reject it.</p>
+</div>
+
+<section class="statusbar">
+  <a href="/admin/requests?show=pending" class="pill <%= show === 'pending' ? 'sel amber' : '' %>">Pending (<%= counts.pending %>)</a>
+  <a href="/admin/requests?show=approved" class="pill <%= show === 'approved' ? 'sel green' : '' %>">Approved (<%= counts.approved %>)</a>
+  <a href="/admin/requests?show=rejected" class="pill <%= show === 'rejected' ? 'sel red' : '' %>">Rejected (<%= counts.rejected %>)</a>
+  <a href="/admin/requests?show=all" class="pill <%= show === 'all' ? 'sel' : '' %>">All</a>
+</section>
+
+<% if (!list.length) { %>
+  <div class="panel muted"><%= show === 'pending' ? 'No requests waiting. You are all caught up.' : 'Nothing here yet.' %></div>
+<% } %>
+
+<% list.forEach(r => { const isImg = r.receipt.type.startsWith('image/') && !/heic|heif/.test(r.receipt.type); %>
+<section class="panel request">
+  <div class="req-head">
+    <div>
+      <h2><a href="/members/<%= r.user_id %>"><%= r.member_name %></a></h2>
+      <div class="small muted">Sent <%= r.created_at.slice(0, 16) %>
+        <% if (r.row) { %> · Currently <span class="badge <%= r.row.status.code %>"><%= r.row.status.label %></span> <%= money(r.row.balance) %><% } %></div>
+    </div>
+    <span class="badge req-<%= r.status %>"><%= statusText[r.status] %></span>
+  </div>
+
+  <div class="req-body">
+    <a class="receipt" href="/requests/<%= r.id %>/receipt" target="_blank" rel="noopener">
+      <% if (isImg) { %><img src="/requests/<%= r.id %>/receipt" alt="Receipt from <%= r.member_name %>" loading="lazy">
+      <% } else { %><span class="receipt-file">📄 Open <%= r.receipt.type === 'application/pdf' ? 'PDF' : 'file' %> receipt</span><% } %>
+    </a>
+
+    <div class="req-details">
+      <dl>
+        <dt>Months</dt><dd><%= monthsText(r.months) || '—' %></dd>
+        <dt>Amount</dt><dd><strong><%= money(r.amount) %></strong></dd>
+        <dt>Date paid</dt><dd><%= r.paid_on %></dd>
+        <% if (r.method) { %><dt>Method</dt><dd><%= r.method %></dd><% } %>
+        <% if (r.note) { %><dt>Member's note</dt><dd><%= r.note %></dd><% } %>
+        <% if (r.status !== 'pending') { %>
+          <dt><%= r.status === 'approved' ? 'Approved' : 'Rejected' %> by</dt><dd><%= r.reviewer || '—' %>, <%= (r.reviewed_at || '').slice(0, 16) %></dd>
+          <% if (r.admin_note) { %><dt><%= r.status === 'rejected' ? 'Reason' : 'Admin note' %></dt><dd><%= r.admin_note %></dd><% } %>
+        <% } %>
+      </dl>
+
+      <% if (r.status === 'pending') { %>
+      <form method="post" action="/admin/requests/<%= r.id %>/approve" class="stack" data-autoamount>
+        <%- include('partials/month-picker', { options: r.options, selected: r.months, lock: false, legend: 'Months to credit' }) %>
+        <div class="row-fields">
+          <label>Amount <input name="amount" inputmode="decimal" value="<%= cents2input(r.amount) %>" data-touched="1" required></label>
+          <label>Date paid <input type="date" name="paid_on" value="<%= r.paid_on %>" required></label>
+          <label>Note to member <span class="hint">Optional</span><input name="admin_note" maxlength="300"></label>
+        </div>
+        <div><button class="btn primary">Approve</button></div>
+      </form>
+      <form method="post" action="/admin/requests/<%= r.id %>/reject" class="reject" onsubmit="return confirm('Reject this payment request?')">
+        <label>Reason for rejecting <input name="admin_note" maxlength="300" placeholder="e.g. Receipt is unreadable, amount does not match" required></label>
+        <button class="btn danger">Reject</button>
+      </form>
+      <% } %>
+    </div>
+  </div>
+</section>
+<% }) %>
+<%- include('partials/footer') %>

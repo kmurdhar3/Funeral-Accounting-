@@ -144,6 +144,44 @@ label.check { flex-direction: row; align-items: center; gap: 8px; font-weight: 4
 .authbox h1, .authbox > p.muted:first-of-type { text-align: center; justify-content: center; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+/* payment requests */
+.count { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: #f0a020; color: #1d2433; font-size: 11px; font-weight: 700; text-align: center; }
+.badge.req-pending { background: var(--amber-bg); color: #8a5a00; }
+.badge.req-approved { background: var(--green); color: #fff; }
+.badge.req-rejected { background: var(--red); color: #fff; }
+.pill.sel.amber { background: var(--amber); border-color: var(--amber); color: #fff; }
+.pill.sel { background: var(--ink); color: #fff; }
+.btn.danger { border-color: var(--red); color: var(--red); }
+td.wrap { white-space: normal; min-width: 120px; }
+.row-fields { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.row-fields > label { flex: 1 1 160px; }
+
+.monthpick { border: 0; padding: 0; margin: 0; min-width: 0; }
+.monthpick legend { font-size: 12px; color: var(--muted); font-weight: 600; padding: 0; margin-bottom: 6px; }
+.chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; }
+.mchip { position: relative; display: flex; flex-direction: column; gap: 0; padding: 7px 10px 7px 30px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; color: var(--ink); font-weight: 600; }
+.mchip input { position: absolute; left: 9px; top: 10px; margin: 0; width: 15px; height: 15px; padding: 0; }
+.mchip .mc-name { font-size: 13px; }
+.mchip .mc-state { font-size: 11px; font-weight: 500; color: var(--muted); }
+.mchip.s-unpaid, .mchip.s-partial { border-color: #f1b5b5; background: #fff8f8; }
+.mchip.s-unpaid .mc-state, .mchip.s-partial .mc-state { color: var(--red); }
+.mchip.s-pending { border-color: #f0d08a; background: var(--amber-bg); }
+.mchip.s-paid .mc-state, .mchip.s-prepaid .mc-state { color: var(--green); }
+.mchip:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 2px #c9d6fb; background: #f3f6ff; }
+.mchip.off { opacity: .55; cursor: not-allowed; }
+
+.request .req-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+.request .req-head h2 { margin: 0 0 2px; }
+.req-body { display: grid; grid-template-columns: 220px 1fr; gap: 16px; }
+.receipt { display: block; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fafbfc; min-height: 120px; }
+.receipt img { display: block; width: 100%; max-height: 320px; object-fit: contain; background: #fff; }
+.receipt-file { display: flex; align-items: center; justify-content: center; height: 120px; font-weight: 600; }
+.req-details dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0 0 14px; }
+.req-details dt { color: var(--muted); font-size: 12px; font-weight: 600; padding-top: 2px; }
+.req-details dd { margin: 0; }
+.request form.reject { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.request form.reject label { flex: 1 1 240px; }
+
 .show-sm { display: none; }
 
 /* ---------- phones and small tablets ---------- */
@@ -196,5 +234,9 @@ label.check { flex-direction: row; align-items: center; gap: 8px; font-weight: 4
   .pagehead .btn { width: 100%; text-align: center; }
 
   .authbox { margin: 16px auto; padding: 20px; }
+  .req-body { grid-template-columns: 1fr; }
+  .chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .row-fields { flex-direction: column; align-items: stretch; }
+  .request form.reject { flex-direction: column; align-items: stretch; }
   .authlogo { width: 170px; }
 }

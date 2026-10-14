@@ -1,0 +1,25 @@
+<%#
+  Month checkboxes for a payment.
+  options:  [{ m, due, paid, remaining, state, pending }]
+  selected: months to tick initially
+  lock:     true for members (can't pick months already paid or waiting for approval)
+%><%
+  const stateText = { unpaid: 'Owing', partial: 'Part paid', paid: 'Paid', prepaid: 'Paid ahead', 'partial-ahead': 'Part paid', upcoming: 'Upcoming' };
+%>
+<fieldset class="monthpick">
+  <legend><%= typeof legend !== 'undefined' ? legend : 'Months this payment is for' %></legend>
+  <div class="chips">
+  <% options.forEach(o => {
+       const done = o.remaining <= 0;
+       if (done && o.state === 'paid' && !selected.includes(o.m)) return; // hide settled past months
+       const disabled = lock && (done || o.pending);
+       const label = o.pending ? 'Pending' : stateText[o.state]; %>
+    <label class="mchip s-<%= o.pending ? 'pending' : o.state %> <%= disabled ? 'off' : '' %>">
+      <input type="checkbox" name="months" value="<%= o.m %>" data-amount="<%= done ? o.due : o.remaining %>"
+        <%= selected.includes(o.m) ? 'checked' : '' %> <%= disabled ? 'disabled' : '' %>>
+      <span class="mc-name"><%= monthLabel(o.m) %></span>
+      <span class="mc-state"><%= label %><% if (!done && o.paid > 0) { %> · <%= money(o.remaining) %> left<% } %></span>
+    </label>
+  <% }) %>
+  </div>
+</fieldset>

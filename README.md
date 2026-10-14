@@ -50,7 +50,11 @@ If two admins save at the same moment, the second save reloads the latest data a
 | Withdrawals: funeral payouts, bank fees | Withdrawals |
 | Society name, currency symbol, arrears rules, opening bank balance | Settings |
 
-**Payment allocation.** A payment pays off the oldest amount owing first: brought-forward, then each month's fee and top-ups in date order. Anything left over covers future months. For example, with a 100 monthly fee, a lump sum of 500 paid in a fully paid-up month covers the next 5 months.
+**Payment allocation.** A payment without specific months pays off the oldest amount owing first: brought-forward, then each month's fee and top-ups in date order. Anything left over covers future months. For example, with a 100 monthly fee, a lump sum of 500 paid in a fully paid-up month covers the next 5 months.
+
+**Paying with a receipt.** On their account page, a member ticks the months they paid for, enters the amount and date, and attaches a photo or PDF of the receipt. The request appears under **Requests** for the admin, with a count in the menu. The admin checks the receipt, can correct the amount or months, and approves it, which records the payment, or rejects it with a reason the member can see. Receipts are private: only the member who sent one and admins can open it.
+
+**Which months a payment pays.** A payment marked for specific months pays those months first. Payments without months, and anything left over, pay the oldest amount owed first.
 
 **Status colours**
 - 🟢 **Green**: balance is 0 or in credit (up to date or paid ahead).
