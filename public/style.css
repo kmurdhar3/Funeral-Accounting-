@@ -27,7 +27,9 @@ h2 { font-size: 16px; margin: 0 0 12px; }
 /* top bar */
 .topbar { background: #1d2433; color: #fff; display: flex; align-items: center; gap: 20px; padding: 0 16px; flex-wrap: wrap; }
 .topbar a { color: #cfd6e6; }
-.brand { font-weight: 700; color: #fff !important; padding: 12px 0; }
+.brand { font-weight: 700; color: #fff !important; padding: 8px 0; display: flex; align-items: center; gap: 10px; }
+.brand:hover { text-decoration: none; }
+.brand img { width: 40px; height: 40px; object-fit: contain; background: #fff; border-radius: 8px; padding: 3px; }
 .topbar nav { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
 .topbar nav a { padding: 14px 10px; border-bottom: 3px solid transparent; }
 .topbar nav a.on { color: #fff; border-bottom-color: #7fa2ff; }
@@ -136,3 +138,6 @@ form.inline label { flex-direction: row; align-items: center; }
 td form { margin: 0; display: inline; }
 .authbox { max-width: 380px; margin: 60px auto; background: var(--panel); padding: 28px; border-radius: 10px; border: 1px solid var(--line); }
 label.check { flex-direction: row; align-items: center; gap: 8px; font-weight: 400; color: var(--ink); font-size: 13px; }
+.authlogo { display: block; width: 220px; max-width: 80%; margin: -8px auto 8px; }
+.authbox h1, .authbox > p.muted:first-of-type { text-align: center; justify-content: center; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

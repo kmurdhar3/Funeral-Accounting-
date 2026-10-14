@@ -1,6 +1,7 @@
 <%- include('partials/header') %>
 <div class="authbox">
-  <h1><%= settings.org_name %></h1>
+  <img class="authlogo" src="/logo.jpg" alt="<%= settings.org_name %> logo">
+  <h1 class="sr-only"><%= settings.org_name %></h1>
   <p class="muted">Sign in to view contributions.</p>
   <form method="post" action="/login" class="stack">
     <label>Username <input name="username" autocomplete="username" required autofocus></label>
