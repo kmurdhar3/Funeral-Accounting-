@@ -44,17 +44,17 @@
 <section class="panel">
   <h2><%= isSelf ? 'My payment requests' : 'Payment requests' %></h2>
   <div class="tablewrap">
-  <table class="list">
+  <table class="list stack-sm">
     <thead><tr><th>Sent</th><th>Months</th><th class="num">Amount</th><th>Status</th><th>Receipt</th></tr></thead>
     <tbody>
     <% requests.forEach(r => { %>
       <tr>
-        <td><%= r.created_at.slice(0, 10) %></td>
-        <td class="wrap"><%= monthsText(r.months) %></td>
-        <td class="num"><%= money(r.amount) %></td>
-        <td class="wrap"><span class="badge req-<%= r.status %>"><%= { pending: 'Waiting for approval', approved: 'Approved', rejected: 'Rejected' }[r.status] %></span>
+        <td data-label="Sent"><%= r.created_at.slice(0, 10) %></td>
+        <td data-label="Months" class="wrap"><%= monthsText(r.months) %></td>
+        <td data-label="Amount" class="num"><%= money(r.amount) %></td>
+        <td data-label="Status" class="wrap"><span class="badge req-<%= r.status %>"><%= { pending: 'Waiting for approval', approved: 'Approved', rejected: 'Rejected' }[r.status] %></span>
           <% if (r.admin_note) { %><div class="small muted"><%= r.admin_note %></div><% } %></td>
-        <td><a href="/requests/<%= r.id %>/receipt" target="_blank" rel="noopener">View</a></td>
+        <td data-label="Receipt"><a href="/requests/<%= r.id %>/receipt" target="_blank" rel="noopener">View receipt</a></td>
       </tr>
     <% }) %>
     </tbody>

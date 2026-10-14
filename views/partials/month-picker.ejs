@@ -3,23 +3,33 @@
   options:  [{ m, due, paid, remaining, state, pending }]
   selected: months to tick initially
   lock:     true for members (can't pick months already paid or waiting for approval)
+  Settled past months are hidden; months more than 3 ahead fold under "More months".
 %><%
   const stateText = { unpaid: 'Owing', partial: 'Part paid', paid: 'Paid', prepaid: 'Paid ahead', 'partial-ahead': 'Part paid', upcoming: 'Upcoming' };
+  const [cy, cm] = (() => { const d = new Date(); return [d.getFullYear(), d.getMonth() + 1]; })();
+  const ahead = new Date(cy, cm - 1 + 3, 1);
+  const lastNear = `${ahead.getFullYear()}-${String(ahead.getMonth() + 1).padStart(2, '0')}`;
+  const shown = options.filter(o => !(o.remaining <= 0 && o.state === 'paid' && !selected.includes(o.m)));
+  const near = shown.filter(o => o.m <= lastNear || selected.includes(o.m));
+  const later = shown.filter(o => !near.includes(o));
+  const chip = o => {
+    const done = o.remaining <= 0;
+    const disabled = lock && (done || o.pending);
+    const label = o.pending ? 'Pending' : stateText[o.state];
+    return `<label class="mchip s-${o.pending ? 'pending' : o.state} ${disabled ? 'off' : ''}">
+      <input type="checkbox" name="months" value="${o.m}" data-amount="${done ? o.due : o.remaining}" ${selected.includes(o.m) ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+      <span class="mc-name">${monthLabel(o.m)}</span>
+      <span class="mc-state">${label}${!done && o.paid > 0 ? ` · ${money(o.remaining)} left` : ''}</span>
+    </label>`;
+  };
 %>
 <fieldset class="monthpick">
   <legend><%= typeof legend !== 'undefined' ? legend : 'Months this payment is for' %></legend>
-  <div class="chips">
-  <% options.forEach(o => {
-       const done = o.remaining <= 0;
-       if (done && o.state === 'paid' && !selected.includes(o.m)) return; // hide settled past months
-       const disabled = lock && (done || o.pending);
-       const label = o.pending ? 'Pending' : stateText[o.state]; %>
-    <label class="mchip s-<%= o.pending ? 'pending' : o.state %> <%= disabled ? 'off' : '' %>">
-      <input type="checkbox" name="months" value="<%= o.m %>" data-amount="<%= done ? o.due : o.remaining %>"
-        <%= selected.includes(o.m) ? 'checked' : '' %> <%= disabled ? 'disabled' : '' %>>
-      <span class="mc-name"><%= monthLabel(o.m) %></span>
-      <span class="mc-state"><%= label %><% if (!done && o.paid > 0) { %> · <%= money(o.remaining) %> left<% } %></span>
-    </label>
-  <% }) %>
-  </div>
+  <div class="chips"><%- near.map(chip).join('') %></div>
+  <% if (later.length) { %>
+  <details>
+    <summary>More months (<%= monthLabel(later[0].m) %> – <%= monthLabel(later[later.length - 1].m) %>)</summary>
+    <div class="chips"><%- later.map(chip).join('') %></div>
+  </details>
+  <% } %>
 </fieldset>
